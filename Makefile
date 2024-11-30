@@ -4,7 +4,7 @@ NAMESPACE=dsp-demo-creditcard-fraud
 GIT_REPO_NAME=fraud-detection-pipeline
 MODEL_REGISTRY_NAME=creditfraud-pipeline-model-registry
 MARIADB_NAME=mariadb-creditfraud-pipeline
-UPSTREAM_REPO=https://github.com/redhat-ai-services/mlops-demo-iris-training-service.git 
+UPSTREAM_REPO=https://github.com/tsailiming/openshift-ai-dsp.git
 
 .PHONY: setup-dsp-demo
 setup-dsp-demo: preflight-check setup-namespace deploy-minio deploy-dspa deploy-model-registry deploy-tekton deploy-gitea
