@@ -1,0 +1,30 @@
+apiVersion: tekton.dev/v1
+kind: PipelineRun
+metadata:
+  generateName: fraud-detection-run-
+  namespace: dsp-demo-creditcard-fraud  
+spec:
+  params:
+    - name: GIT_REVISION
+      value: ${GIT_REVISION}
+    - name: GIT_URL
+      value: ${GIT_URL}    
+  pipelineRef:
+    name: fraud-detection
+  taskRunTemplate:
+    serviceAccountName: pipeline
+  timeouts:
+    pipeline: 1h0m0s
+  workspaces:
+    - name: source
+      volumeClaimTemplate:
+        metadata:
+          creationTimestamp: null
+        spec:
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 1Gi
+          storageClassName: gp3-csi
+          volumeMode: Filesystem        

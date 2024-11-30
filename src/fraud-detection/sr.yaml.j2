@@ -1,0 +1,61 @@
+apiVersion: serving.kserve.io/v1alpha1
+kind: ServingRuntime
+metadata:
+  annotations:
+    opendatahub.io/accelerator-name: ""
+    opendatahub.io/apiProtocol: REST
+    opendatahub.io/recommended-accelerators: '["nvidia.com/gpu"]'
+    opendatahub.io/template-display-name: OpenVINO Model Server
+    opendatahub.io/template-name: kserve-ovms
+    openshift.io/display-name: {{model_name}}
+  labels:
+    opendatahub.io/dashboard: "true"
+  name: {{model_name}}
+spec:
+  annotations:
+    prometheus.io/path: /metrics
+    prometheus.io/port: "8888"
+  containers:
+  - args:
+    - --port=8001
+    - --rest_port=8888    
+    - --file_system_poll_wait_seconds=0
+    - --grpc_bind_address=0.0.0.0
+    - --rest_bind_address=0.0.0.0    
+    - --metrics_enable
+    - --config_path=/mnt/models/model_config.json
+    image: quay.io/modh/openvino_model_server@sha256:38e8cdf152622371ba0330c02091a8d54b39c14de1d4b8f0bb696dcf0e6d4398
+    name: kserve-container
+    ports:
+    - containerPort: 8888
+      protocol: TCP
+    volumeMounts:
+    - mountPath: /dev/shm
+      name: shm
+  multiModel: false
+  protocolVersions:
+  - v2
+  - grpc-v2
+  supportedModelFormats:
+  - autoSelect: true
+    name: openvino_ir
+    version: opset13
+  - name: onnx
+    version: "1"
+  - autoSelect: true
+    name: tensorflow
+    version: "1"
+  - autoSelect: true
+    name: tensorflow
+    version: "2"
+  - autoSelect: true
+    name: paddle
+    version: "2"
+  - autoSelect: true
+    name: pytorch
+    version: "2"
+  volumes:
+  - emptyDir:
+      medium: Memory
+      sizeLimit: 2Gi
+    name: shm

@@ -1,0 +1,638 @@
+# PIPELINE DEFINITION
+# Name: fraud-detection-training-pipeline
+# Description: Trains the fraud detection model.
+# Inputs:
+#    datastore: dict
+#    hyperparameters: dict
+# Outputs:
+#    evaluate-keras-model-performance-classification_metrics: system.ClassificationMetrics
+#    evaluate-keras-model-performance-metrics: system.Metrics
+components:
+  comp-convert-keras-to-onnx:
+    executorLabel: exec-convert-keras-to-onnx
+    inputDefinitions:
+      artifacts:
+        keras_model:
+          artifactType:
+            schemaTitle: system.Model
+            schemaVersion: 0.0.1
+    outputDefinitions:
+      artifacts:
+        onnx_model:
+          artifactType:
+            schemaTitle: system.Model
+            schemaVersion: 0.0.1
+  comp-evaluate-keras-model-performance:
+    executorLabel: exec-evaluate-keras-model-performance
+    inputDefinitions:
+      artifacts:
+        model:
+          artifactType:
+            schemaTitle: system.Model
+            schemaVersion: 0.0.1
+        scaler:
+          artifactType:
+            schemaTitle: system.Model
+            schemaVersion: 0.0.1
+        test_data:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+      parameters:
+        previous_model_metrics:
+          parameterType: STRUCT
+    outputDefinitions:
+      artifacts:
+        classification_metrics:
+          artifactType:
+            schemaTitle: system.ClassificationMetrics
+            schemaVersion: 0.0.1
+        markdown:
+          artifactType:
+            schemaTitle: system.Markdown
+            schemaVersion: 0.0.1
+        metrics:
+          artifactType:
+            schemaTitle: system.Metrics
+            schemaVersion: 0.0.1
+  comp-fetch-transactionsdb-data:
+    executorLabel: exec-fetch-transactionsdb-data
+    inputDefinitions:
+      parameters:
+        datastore:
+          parameterType: STRUCT
+    outputDefinitions:
+      artifacts:
+        dataset:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+  comp-preprocess-transactiondb-data:
+    executorLabel: exec-preprocess-transactiondb-data
+    inputDefinitions:
+      artifacts:
+        in_data:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+    outputDefinitions:
+      artifacts:
+        scaler:
+          artifactType:
+            schemaTitle: system.Model
+            schemaVersion: 0.0.1
+        test_data:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+        train_data:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+        val_data:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+      parameters:
+        class_weights:
+          parameterType: STRUCT
+  comp-train-fraud-model:
+    executorLabel: exec-train-fraud-model
+    inputDefinitions:
+      artifacts:
+        scaler:
+          artifactType:
+            schemaTitle: system.Model
+            schemaVersion: 0.0.1
+        train_data:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+        val_data:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+      parameters:
+        class_weights:
+          parameterType: STRUCT
+        hyperparameters:
+          parameterType: STRUCT
+    outputDefinitions:
+      artifacts:
+        trained_model:
+          artifactType:
+            schemaTitle: system.Model
+            schemaVersion: 0.0.1
+  comp-validate-onnx-model:
+    executorLabel: exec-validate-onnx-model
+    inputDefinitions:
+      artifacts:
+        keras_model:
+          artifactType:
+            schemaTitle: system.Model
+            schemaVersion: 0.0.1
+        onnx_model:
+          artifactType:
+            schemaTitle: system.Model
+            schemaVersion: 0.0.1
+        test_data:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+  comp-validate-transactiondb-data:
+    executorLabel: exec-validate-transactiondb-data
+    inputDefinitions:
+      artifacts:
+        dataset:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+    outputDefinitions:
+      parameters:
+        Output:
+          parameterType: BOOLEAN
+deploymentSpec:
+  executors:
+    exec-convert-keras-to-onnx:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - convert_keras_to_onnx
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.8.0'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"'  &&\
+          \  python3 -m pip install --quiet --no-warn-script-location 'tf2onnx' 'onnx'\
+          \ 'pandas' 'scikit-learn' && \"$0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef convert_keras_to_onnx(\n    keras_model: Input[Model],\n    onnx_model:\
+          \ Output[Model],\n):\n    import tf2onnx, onnx\n    import keras\n    import\
+          \ tensorflow as tf\n\n    trained_keras_model = keras.saving.load_model(keras_model.path)\n\
+          \    input_signature = [tf.TensorSpec(trained_keras_model.inputs[0].shape,\
+          \ trained_keras_model.inputs[0].dtype, name='input')]\n    trained_keras_model.output_names\
+          \ = ['output']\n    onnx_model_proto, _ = tf2onnx.convert.from_keras(trained_keras_model,\
+          \ input_signature)\n\n    onnx_model.path += \".onnx\"\n    onnx.save(onnx_model_proto,\
+          \ onnx_model.path)\n\n"
+        image: quay.io/hukhan/tensorflow:2.17.0
+    exec-evaluate-keras-model-performance:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - evaluate_keras_model_performance
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.8.0'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"'  &&\
+          \  python3 -m pip install --quiet --no-warn-script-location 'tf2onnx' 'onnx'\
+          \ 'pandas' 'scikit-learn' && \"$0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef evaluate_keras_model_performance(\n    model: Input[Model],\n\
+          \    test_data: Input[Dataset],\n    scaler: Input[Model],\n    previous_model_metrics:\
+          \ dict,\n    metrics: Output[Metrics],\n    classification_metrics: Output[ClassificationMetrics],\n\
+          \    markdown: Output[Markdown]\n):\n    import keras\n    import pandas\
+          \ as pd\n    from sklearn.metrics import confusion_matrix\n    import numpy\
+          \ as np\n\n    trained_model = keras.saving.load_model(model.path)\n   \
+          \ with open(test_data.path, 'rb') as pickle_file:\n        X_test, y_test\
+          \ = pd.read_pickle(pickle_file)\n    with open(scaler.path, 'rb') as pickle_file:\n\
+          \        st_scaler = pd.read_pickle(pickle_file)\n\n    y_pred_temp = trained_model.predict(st_scaler.transform(X_test.values))\n\
+          \    y_pred_temp = np.asarray(np.squeeze(y_pred_temp))\n    threshold =\
+          \ 0.95\n    y_pred = np.where(y_pred_temp > threshold, 1,0)\n    accuracy\
+          \ = np.sum(np.asarray(y_test) == y_pred) / len(y_pred)\n\n    metrics.log_metric(\"\
+          Accuracy\", accuracy)\n    metrics.log_metric(\"Prev Model Accuracy\", previous_model_metrics[\"\
+          accuracy\"])\n\n    cmatrix = confusion_matrix(np.asarray(y_test), y_pred)\n\
+          \    cmatrix = cmatrix.tolist()\n    targets = [\"0\", \"1\"]  #TODO: Replace\
+          \ with info from schema\n    classification_metrics.log_confusion_matrix(targets,\
+          \ cmatrix)\n\n    with open(markdown.path, 'w') as f:\n        f.write(\"\
+          ### Accuracy\\n\")\n        f.write(f'Accuracy: {accuracy:.2f}\\n')\n  \
+          \      f.write(\"### Previous Model Accuracy\\n\")\n        f.write(f'Accuracy:\
+          \ {previous_model_metrics[\"accuracy\"]:.2f}\\n')\n\n    if accuracy <=\
+          \ previous_model_metrics[\"accuracy\"]:\n        raise Exception(\"Accuracy\
+          \ is lower than the previous models\")\n\n"
+        image: quay.io/hukhan/tensorflow:2.17.0
+    exec-fetch-transactionsdb-data:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - fetch_transactionsdb_data
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.8.0'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"'  &&\
+          \  python3 -m pip install --quiet --no-warn-script-location 'psycopg2' 'pandas'\
+          \ && \"$0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef fetch_transactionsdb_data(\n    datastore: dict,\n    dataset:\
+          \ Output[Dataset]\n):\n    \"\"\"\n    Fetches data from the transactionsdb\
+          \ datastore\n    \"\"\"\n    import urllib.request\n    print(\"starting\
+          \ download...\")\n    url = datastore['url']\n    urllib.request.urlretrieve(url,\
+          \ dataset.path)\n    print(\"done\")\n\n"
+        image: quay.io/opendatahub/ds-pipelines-sample-base:v1.0
+    exec-preprocess-transactiondb-data:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - preprocess_transactiondb_data
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.8.0'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"'  &&\
+          \  python3 -m pip install --quiet --no-warn-script-location 'pandas' 'scikit-learn'\
+          \ && \"$0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef preprocess_transactiondb_data(\n    in_data: Input[Dataset],\n\
+          \    train_data: Output[Dataset],\n    val_data: Output[Dataset],\n    test_data:\
+          \ Output[Dataset],\n    scaler: Output[Model],\n) -> NamedTuple('outputs',\
+          \ class_weights=dict):\n    \"\"\"\n    Takes the dataset and preprocesses\
+          \ it to better train on the fraud detection model.\n    The preprocessing\
+          \ consists of:\n    1. Splitting the dataset into training, validation,\
+          \ and testing.\n    2. Creating a scaler which scales down the training\
+          \ dataset. This scaler is saved as an artifact.\n    3. Calculates the class\
+          \ weights, which will later be used during the training.\n    \"\"\"\n\n\
+          \    from sklearn.model_selection import train_test_split\n    from sklearn.preprocessing\
+          \ import StandardScaler\n    from sklearn.utils import class_weight\n  \
+          \  import pandas as pd\n    import pickle\n    import numpy as np\n    from\
+          \ typing import NamedTuple\n\n    df = pd.read_csv(in_data.path)\n    print(df.head())\n\
+          \    X = df.drop(columns = ['repeat_retailer','distance_from_home', 'fraud'])\n\
+          \    y = df['fraud']\n\n    # Split the data into training and testing sets\
+          \ so you have something to test the trained model with.\n\n    # X_train,\
+          \ X_test, y_train, y_test = train_test_split(X,y, test_size = 0.2, stratify\
+          \ = y)\n    X_train, X_test, y_train, y_test = train_test_split(X,y, test_size\
+          \ = 0.2, shuffle = False)\n\n    X_train, X_val, y_train, y_val = train_test_split(X_train,y_train,\
+          \ test_size = 0.2, stratify = y_train)\n\n    # Scale the data to remove\
+          \ mean and have unit variance. The data will be between -1 and 1, which\
+          \ makes it a lot easier for the model to learn than random (and potentially\
+          \ large) values.\n    # It is important to only fit the scaler to the training\
+          \ data, otherwise you are leaking information about the global distribution\
+          \ of variables (which is influenced by the test set) into the training set.\n\
+          \n    st_scaler = StandardScaler()\n\n    X_train = st_scaler.fit_transform(X_train.values)\n\
+          \n    train_data.path += \".pkl\"\n    val_data.path += \".pkl\"\n    test_data.path\
+          \ += \".pkl\"\n    scaler.path += \".pkl\"\n\n    with open(train_data.path,\
+          \ \"wb\") as handle:\n        pickle.dump((X_train, y_train), handle)\n\
+          \    with open(val_data.path, \"wb\") as handle:\n        pickle.dump((X_val,\
+          \ y_val), handle)\n    with open(test_data.path, \"wb\") as handle:\n  \
+          \      pickle.dump((X_test, y_test), handle)\n    with open(scaler.path,\
+          \ \"wb\") as handle:\n        pickle.dump(st_scaler, handle)\n\n    # Since\
+          \ the dataset is unbalanced (it has many more non-fraud transactions than\
+          \ fraudulent ones), set a class weight to weight the few fraudulent transactions\
+          \ higher than the many non-fraud transactions.\n\n    class_weights = class_weight.compute_class_weight('balanced',classes\
+          \ = np.unique(y_train),y = y_train)\n    class_weights = {i : class_weights[i]\
+          \ for i in range(len(class_weights))}\n\n    outputs = NamedTuple('outputs',\
+          \ class_weights=dict)\n    return outputs(class_weights)\n\n"
+        image: quay.io/opendatahub/ds-pipelines-sample-base:v1.0
+    exec-train-fraud-model:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - train_fraud_model
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.8.0'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"'  &&\
+          \  python3 -m pip install --quiet --no-warn-script-location 'pandas' 'scikit-learn'\
+          \ && \"$0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef train_fraud_model(\n    train_data: Input[Dataset],\n    val_data:\
+          \ Input[Dataset],\n    scaler: Input[Model],\n    class_weights: dict,\n\
+          \    hyperparameters: dict,\n    trained_model: Output[Model]\n):\n    \"\
+          \"\"\n    Trains a dense tensorflow model.\n    \"\"\"\n\n    from keras.models\
+          \ import Sequential\n    from keras.layers import Dense, Dropout, BatchNormalization,\
+          \ Activation\n    import pickle\n    import pandas as pd\n    import sklearn\n\
+          \n    with open(train_data.path, 'rb') as pickle_file:\n        X_train,\
+          \ y_train = pd.read_pickle(pickle_file)\n    with open(val_data.path, 'rb')\
+          \ as pickle_file:\n        X_val, y_val = pd.read_pickle(pickle_file)\n\
+          \    with open(scaler.path, 'rb') as pickle_file:\n        st_scaler = pd.read_pickle(pickle_file)\n\
+          \n    y_train = y_train.to_numpy()\n    y_val = y_val.to_numpy()\n\n   \
+          \ model = Sequential()\n    model.add(Dense(32, activation = 'relu', input_dim\
+          \ = X_train.shape[1]))\n    model.add(Dropout(0.2))\n    model.add(Dense(32))\n\
+          \    model.add(BatchNormalization())\n    model.add(Activation('relu'))\n\
+          \    model.add(Dropout(0.2))\n    model.add(Dense(32))\n    model.add(BatchNormalization())\n\
+          \    model.add(Activation('relu'))\n    model.add(Dropout(0.2))\n    model.add(Dense(1,\
+          \ activation = 'sigmoid'))\n    model.compile(optimizer='adam',loss='binary_crossentropy',metrics=['accuracy'])\n\
+          \    model.summary()\n\n    epochs = hyperparameters[\"epochs\"]\n    history\
+          \ = model.fit(X_train, y_train, epochs=epochs, \\\n                    \
+          \    validation_data=(st_scaler.transform(X_val.values),y_val), \\\n   \
+          \                     verbose = True, class_weight = class_weights)\n  \
+          \  print(\"Training of model is complete\")\n\n    trained_model.path +=\
+          \ \".keras\"\n    model.save(trained_model.path)\n\n"
+        image: quay.io/hukhan/tensorflow:2.17.0
+    exec-validate-onnx-model:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - validate_onnx_model
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.8.0'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"'  &&\
+          \  python3 -m pip install --quiet --no-warn-script-location 'onnxruntime'\
+          \ 'pandas' && \"$0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef validate_onnx_model(\n    onnx_model: Input[Model],\n    keras_model:\
+          \ Input[Model],\n    test_data: Input[Dataset],\n):\n    import onnxruntime\
+          \ as rt\n    import pandas as pd\n    import numpy as np\n    import keras\n\
+          \n    with open(test_data.path, 'rb') as pickle_file:\n        X_test, _\
+          \ = pd.read_pickle(pickle_file)    \n    _keras_model = keras.saving.load_model(keras_model.path)\n\
+          \    onnx_session = rt.InferenceSession(onnx_model.path, providers=rt.get_available_providers())\n\
+          \n    onnx_input_name = onnx_session.get_inputs()[0].name\n    onnx_output_name\
+          \ = onnx_session.get_outputs()[0].name\n    onnx_pred = onnx_session.run([onnx_output_name],\
+          \ {onnx_input_name: X_test.values.astype(np.float32)})\n\n    keras_pred\
+          \ = _keras_model(X_test.values)\n\n    print(\"Keras Pred: \", keras_pred)\n\
+          \    print(\"ONNX Pred: \", onnx_pred[0])\n\n    for rt_res, keras_res in\
+          \ zip(onnx_pred[0], keras_pred):\n        np.testing.assert_allclose(rt_res,\
+          \ keras_res, rtol=1e-5, atol=1e-5)\n\n    print(\"Results match\")\n\n"
+        image: quay.io/hukhan/tensorflow:2.17.0
+    exec-validate-transactiondb-data:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - validate_transactiondb_data
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.8.0'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef validate_transactiondb_data(\n    dataset: Input[Dataset]\n)\
+          \ -> bool:\n    \"\"\"\n    Validates if the data schema is correct and\
+          \ if the values are reasonable.\n    \"\"\"\n\n    if not dataset.path:\n\
+          \        raise Exception(\"dataset not found\")\n    return True\n\n"
+        image: quay.io/opendatahub/ds-pipelines-sample-base:v1.0
+pipelineInfo:
+  description: Trains the fraud detection model.
+  name: fraud-detection-training-pipeline
+root:
+  dag:
+    outputs:
+      artifacts:
+        evaluate-keras-model-performance-classification_metrics:
+          artifactSelectors:
+          - outputArtifactKey: classification_metrics
+            producerSubtask: evaluate-keras-model-performance
+        evaluate-keras-model-performance-metrics:
+          artifactSelectors:
+          - outputArtifactKey: metrics
+            producerSubtask: evaluate-keras-model-performance
+    tasks:
+      convert-keras-to-onnx:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-convert-keras-to-onnx
+        dependentTasks:
+        - train-fraud-model
+        inputs:
+          artifacts:
+            keras_model:
+              taskOutputArtifact:
+                outputArtifactKey: trained_model
+                producerTask: train-fraud-model
+        taskInfo:
+          name: convert-keras-to-onnx
+      evaluate-keras-model-performance:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-evaluate-keras-model-performance
+        dependentTasks:
+        - preprocess-transactiondb-data
+        - train-fraud-model
+        inputs:
+          artifacts:
+            model:
+              taskOutputArtifact:
+                outputArtifactKey: trained_model
+                producerTask: train-fraud-model
+            scaler:
+              taskOutputArtifact:
+                outputArtifactKey: scaler
+                producerTask: preprocess-transactiondb-data
+            test_data:
+              taskOutputArtifact:
+                outputArtifactKey: test_data
+                producerTask: preprocess-transactiondb-data
+          parameters:
+            previous_model_metrics:
+              runtimeValue:
+                constant:
+                  accuracy: 0.85
+        taskInfo:
+          name: evaluate-keras-model-performance
+      fetch-transactionsdb-data:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-fetch-transactionsdb-data
+        inputs:
+          parameters:
+            datastore:
+              componentInputParameter: datastore
+        taskInfo:
+          name: fetch-transactionsdb-data
+      preprocess-transactiondb-data:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-preprocess-transactiondb-data
+        dependentTasks:
+        - fetch-transactionsdb-data
+        inputs:
+          artifacts:
+            in_data:
+              taskOutputArtifact:
+                outputArtifactKey: dataset
+                producerTask: fetch-transactionsdb-data
+        taskInfo:
+          name: preprocess-transactiondb-data
+      train-fraud-model:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-train-fraud-model
+        dependentTasks:
+        - preprocess-transactiondb-data
+        inputs:
+          artifacts:
+            scaler:
+              taskOutputArtifact:
+                outputArtifactKey: scaler
+                producerTask: preprocess-transactiondb-data
+            train_data:
+              taskOutputArtifact:
+                outputArtifactKey: train_data
+                producerTask: preprocess-transactiondb-data
+            val_data:
+              taskOutputArtifact:
+                outputArtifactKey: val_data
+                producerTask: preprocess-transactiondb-data
+          parameters:
+            class_weights:
+              taskOutputParameter:
+                outputParameterKey: class_weights
+                producerTask: preprocess-transactiondb-data
+            hyperparameters:
+              componentInputParameter: hyperparameters
+        taskInfo:
+          name: train-fraud-model
+      validate-onnx-model:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-validate-onnx-model
+        dependentTasks:
+        - convert-keras-to-onnx
+        - preprocess-transactiondb-data
+        - train-fraud-model
+        inputs:
+          artifacts:
+            keras_model:
+              taskOutputArtifact:
+                outputArtifactKey: trained_model
+                producerTask: train-fraud-model
+            onnx_model:
+              taskOutputArtifact:
+                outputArtifactKey: onnx_model
+                producerTask: convert-keras-to-onnx
+            test_data:
+              taskOutputArtifact:
+                outputArtifactKey: test_data
+                producerTask: preprocess-transactiondb-data
+        taskInfo:
+          name: validate-onnx-model
+      validate-transactiondb-data:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-validate-transactiondb-data
+        dependentTasks:
+        - fetch-transactionsdb-data
+        inputs:
+          artifacts:
+            dataset:
+              taskOutputArtifact:
+                outputArtifactKey: dataset
+                producerTask: fetch-transactionsdb-data
+        taskInfo:
+          name: validate-transactiondb-data
+  inputDefinitions:
+    parameters:
+      datastore:
+        parameterType: STRUCT
+      hyperparameters:
+        parameterType: STRUCT
+  outputDefinitions:
+    artifacts:
+      evaluate-keras-model-performance-classification_metrics:
+        artifactType:
+          schemaTitle: system.ClassificationMetrics
+          schemaVersion: 0.0.1
+      evaluate-keras-model-performance-metrics:
+        artifactType:
+          schemaTitle: system.Metrics
+          schemaVersion: 0.0.1
+schemaVersion: 2.1.0
+sdkVersion: kfp-2.8.0

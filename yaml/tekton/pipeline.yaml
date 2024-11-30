@@ -1,0 +1,238 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: execute-kubeflow-pipeline  
+spec:
+  description: >-
+    This task will execute a python script, triggering a kubeflow pipeline
+  workspaces:
+    - name: src
+      description: The pipeline directory
+  params:
+    - name: IMAGE
+      description: The image used to execute the script
+      default: registry.access.redhat.com/ubi8/python-39
+      type: string
+    - name: TAG
+      description: The tag for the image
+      type: string
+      default: "latest"
+    - name: GIT_REVISION
+      description: Git revision
+      type: string
+      default: "Main"      
+    - name: DSPA_NAME
+      description: The DSPA name
+      type: string
+      default: "dspa"
+    - name: EXPERIMENT_NAME
+      description: The experiment name
+      type: string
+      default: "fraud-detection"       
+    - name: DEST_BUCKET_NAME
+      description: The destination bucket name for the model
+      type: string
+      default: my-storage
+    - name: DEST_MODEL_PREFIX
+      description: The destination prefix bucket key for the model
+      type: string
+      default: "models/fraud-detection-pipeline"
+    - name: MODEL_NAME
+      description: The model name
+      type: string
+      default: fraud-detection
+    - name: DATASTORE_URL
+      description: The datastore url 
+      type: string
+      default: "http://gitea.gitea.svc.cluster.local:3000/opentlc-mgr/lm-fraud-detection/raw/branch/main/src/fraud-detection/card_transdata.csv"
+    - name: DATA_CONNECTION
+      description: The data connection secret name for models
+      type: string
+      default: aws-connection-my-storage
+    - name: MODEL_REGISTRY_ENDOIINT
+      description: The model registry endpoint
+      type: string
+      default: my-model-registry-rest.apps.multus-test.sandbox323.opentlc.com
+  steps:
+    - name: build-yaml-no-cache
+      image: $(inputs.params.IMAGE):$(inputs.params.TAG)
+      workingDir: $(workspaces.src.path)
+      envFrom:
+        - secretRef:
+            name: aws-connection-pipeline-artifacts        
+      env:
+        - name: DEST_BUCKET_NAME
+          value: $(inputs.params.DEST_BUCKET_NAME)
+        - name: DEST_MODEL_PREFIX
+          value: $(inputs.params.DEST_MODEL_PREFIX)
+        - name: MODEL_NAME
+          value: $(inputs.params.MODEL_NAME)
+        - name: DATA_CONNECTION
+          value: $(inputs.params.MODEL_DATA_CONNECTION_KEY)
+      script: |
+        pip install -r src/fraud-detection/requirements.txt
+        mkdir -p output
+        python src/fraud-detection/build_yaml_no_cache.py --output output/fraud_detection_no_cache.yaml
+    - name: run-pipeline
+      image: $(inputs.params.IMAGE):$(inputs.params.TAG)
+      env:
+        - name: DATASTORE_URL
+          value: $(inputs.params.DATASTORE_URL)
+        - name: MODEL_REGISTRY_ENDOIINT
+          value: $(inputs.params.MODEL_REGISTRY_ENDOIINT)
+        - name: GIT_REVISION
+          value: $(inputs.params.GIT_REVISION)
+        - name: DSPA_NAME
+          value: $(inputs.params.DSPA_NAME)
+        - name: EXPERIMENT_NAME
+          value: $(inputs.params.EXPERIMENT_NAME)
+        - name: RUN_NAME
+          value: $(inputs.params.RUN_NAME)
+        - name: MODEL_NAME
+          value: $(inputs.params.MODEL_NAME)
+        - name: ENABLE_CACHING
+          value: $(inputs.params.ENABLE_CACHING)      
+      workingDir: $(workspaces.src.path)
+      script: |
+        pip install -r src/fraud-detection/requirements.txt              
+        python src/fraud-detection/client_run.py --pipeline-file output/fraud_detection_no_cache.yaml
+---
+apiVersion: tekton.dev/v1
+kind: Pipeline
+metadata:
+  name: fraud-detection  
+spec:
+  params:
+    - name: DATASTORE_URL
+      description: The datastore url 
+      type: string
+      default: ''
+    - name: MODEL_REGISTRY_ENDOIINT
+      description: The model registry endpoint
+      type: string
+      default: ''
+    - default: 'https://github.com/rh-datascience-and-edge-practice/mlops-demo-iris-training-service.git'
+      description: Fraud detection URL
+      name: GIT_URL
+      type: string
+    - default: main
+      description: Main Branch
+      name: GIT_REVISION
+      type: string
+    - default: registry.access.redhat.com/ubi8/python-39
+      description: Python image version
+      name: PYTHON_IMAGE_VERSION
+      type: string
+    - default: latest
+      description: Python image tag
+      name: PYTHON_IMAGE_TAG
+      type: string    
+  tasks:
+    - name: git-clone
+      params:
+        - name: url
+          value: $(params.GIT_URL)
+        - name: revision
+          value: $(params.GIT_REVISION)
+        - name: submodules
+          value: 'true'
+        - name: depth
+          value: '1'
+        - name: sslVerify
+          value: 'true'
+        - name: crtFileName
+          value: ca-bundle.crt
+        - name: deleteExisting
+          value: 'true'
+        - name: verbose
+          value: 'true'
+        - name: gitInitImage
+          value: 'registry.redhat.io/openshift-pipelines/pipelines-git-init-rhel8@sha256:2b4c4958cabdceffefef68940608f2c7e6774c0b94ba3eb49fa1b9ff0b544e8c'
+        - name: userHome
+          value: /tekton/home
+      taskRef:
+        kind: ClusterTask
+        name: git-clone
+      workspaces:
+        - name: output
+          workspace: source
+    - name: execute-kubeflow-pipeline
+      params:
+        - name: DATASTORE_URL
+          value: $(params.DATASTORE_URL)
+        - name: MODEL_REGISTRY_ENDOIINT
+          value: $(params.MODEL_REGISTRY_ENDOIINT)
+        - name: IMAGE
+          value: $(params.PYTHON_IMAGE_VERSION)
+        - name: TAG
+          value: $(params.PYTHON_IMAGE_TAG)
+        - name: GIT_REVISION
+          value: $(params.GIT_REVISION)
+      runAfter:
+        - git-clone
+      taskRef:
+        kind: Task
+        name: execute-kubeflow-pipeline
+      workspaces:
+        - name: src
+          workspace: source
+  workspaces:
+    - name: source
+---
+apiVersion: triggers.tekton.dev/v1alpha1
+kind: TriggerTemplate
+metadata:
+  name: fraud-detection-trigger-template  
+spec:
+  params:
+    - name: GIT_REVISION
+      description: The git revision
+    - name: GIT_URL
+      description: The git repository URL    
+  resourcetemplates:
+    - apiVersion: tekton.dev/v1beta1
+      kind: PipelineRun
+      metadata:
+        generateName: fraud-detection-run-
+      spec:
+        pipelineRef:
+          name: fraud-detection
+        workspaces:
+          - name: source
+            volumeClaimTemplate:
+              spec:
+                accessModes:
+                    - ReadWriteOnce
+                resources:
+                  requests:
+                    storage: 1Gi
+                storageClassName: gp3-csi
+                volumeMode: Filesystem        
+        params:
+          - name: GIT_REVISION
+            value: $(tt.params.GIT_REVISION)  # Ensure the proper syntax is used here
+          - name: GIT_URL
+            value: $(tt.params.GIT_URL)
+---
+apiVersion: triggers.tekton.dev/v1alpha1
+kind: TriggerBinding
+metadata:
+  name: fraud-detection-trigger-binding  
+spec:
+  params:
+    - name: GIT_REVISION
+      value: $(body.head_commit.id)
+    - name: GIT_URL
+      value: $(body.repository.clone_url)
+---
+apiVersion: triggers.tekton.dev/v1alpha1
+kind: EventListener
+metadata:
+  name: fraud-detection-listener  
+spec:  
+  triggers:
+    - name: fraud-detection-trigger
+      bindings:
+        - ref: fraud-detection-trigger-binding
+      template:
+        ref: fraud-detection-trigger-template

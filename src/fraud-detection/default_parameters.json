@@ -1,0 +1,4 @@
+{
+    "datastore": {"url": "https://raw.githubusercontent.com/rh-aiservices-bu/fraud-detection/main/data/card_transdata.csv"},
+    "hyperparameters": {"epochs": 2}
+}

@@ -1,0 +1,14 @@
+apiVersion: pfe.rhpds.com/v1
+kind: Gitea
+metadata:
+  name: gitea
+  namespace: gitea 
+spec:
+  giteaImageTag: latest
+  giteaSsl: true
+  giteaVolumeSize: 4Gi  
+  postgresqlVolumeSize: 4Gi
+  giteaAdminUser: opentlc-mgr
+  giteaAdminPassword: ""
+  giteaAdminPasswordLength: 16
+  giteaAdminEmail: admi@example.com
