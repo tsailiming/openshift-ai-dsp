@@ -20,7 +20,7 @@ This demo shows how KFP SDK can be used to create the Data Science Pipeline in O
 
 # Setup
 
-This demo will run in the `dsp-demo-creditcrad-fraud` namespace.
+This demo will run in the `dsp-demo-creditcard-fraud` namespace.
 
 ``` bash
 make setup-dsp-demo
@@ -31,18 +31,18 @@ Additionally, it will install the following components:
 | Component    | Namespace | Description |
 | -------- | ------- | ------- | 
 | Gitea  | gitea | Store our pipeline code     |
-| OpenShift Pipeline  | dsp-demo-creditcrad-fraud | To build our Data Science Pipeline using KFP SDK |
+| OpenShift Pipeline  | dsp-demo-creditcard-fraud | To build our Data Science Pipeline using KFP SDK |
 | Model Registry | rhoai-model-registries | To store the model meta information     |
 | MariaDB | rhoai-model-registries | MySQL backend for model registry
-| Data Science Pipeline | dsp-demo-creditcrad-fraud | To run the pipeline     |
-| Minio    | dsp-demo-creditcrad-fraud | To store the model and pipeline artifacts    |
+| Data Science Pipeline | dsp-demo-creditcard-fraud | To run the pipeline     |
+| Minio    | dsp-demo-creditcard-fraud | To store the model and pipeline artifacts    |
 
 ## Minio
 
 The credential for minio is `minio/minio123`. Route for minio is:
 
 ``` bash
-echo "https://$(oc get routes minio-console -n dsp-demo-creditcrad-fraud -o jsonpath='{.spec.host}')"
+echo "https://$(oc get routes minio-console -n dsp-demo-creditcard-fraud -o jsonpath='{.spec.host}')"
 ```
 ## Gitea 
 
