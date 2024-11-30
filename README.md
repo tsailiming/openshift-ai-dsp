@@ -37,6 +37,12 @@ Additionally, it will install the following components:
 | Data Science Pipeline | dsp-demo-creditcard-fraud | To run the pipeline     |
 | Minio    | dsp-demo-creditcard-fraud | To store the model and pipeline artifacts    |
 
+To teardown the entire setup. This will delete the namespace and the model registry.
+
+``` bash
+make teardown-all
+```
+
 ## Minio
 
 The credential for minio is `minio/minio123`. Route for minio is:
