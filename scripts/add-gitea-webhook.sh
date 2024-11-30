@@ -4,12 +4,13 @@ NAMESPACE=$1
 ADMIN_USER=opentlc-mgr
 ADMIN_PASSWORD=$(oc get gitea gitea -n gitea -o jsonpath="{.status.adminPassword}")
 GITEA_ROUTE=$(oc get gitea gitea  -n gitea -o jsonpath="{.status.giteaRoute}")
-REPO_NAME=$2 #fraud-detection-pipeline
+REPO_NAME=$2
 WEBHOOK_URL=http://el-fraud-detection-listener.${NAMESPACE}.svc.cluster.local:8080
-UPSTREAM_GIT_REPO=$3 #https://github.com/redhat-ai-services/mlops-demo-iris-training-service.git #https://github.com/tsailiming/openshift-ai-dsp.git
+UPSTREAM_GIT_REPO=$3
 
 echo "GITEA_ADMIN_PASSWORD: ${ADMIN_PASSWORD}"
 echo "GITEA_ROUTE: ${GITEA_ROUTE}"
+echo "UPSTREAM_GIT_REPO: ${UPSTREAM_GIT_REPO}"
 
 REPO_CHECK=$(curl -s -o /dev/null -w "%{http_code}" \
   -X GET "${GITEA_ROUTE}/api/v1/repos/${ADMIN_USER}/${REPO_NAME}" \
