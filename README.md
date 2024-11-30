@@ -93,7 +93,16 @@ make run-pipeline
 
 # Known Issues
 
-* To [add](https://ai-on-openshift.io/odh-rhoai/openshift-group-management/#adding-kubeadmin-to-rhods-admins) kube:admin to RHOAI admin group
+## RHOAI Admin
+
+To [add](https://ai-on-openshift.io/odh-rhoai/openshift-group-management/#adding-kubeadmin-to-rhods-admins) kube:admin to RHOAI admin group
+
+## Always the Latest Model Version
+When you use the model registry to deploy, the current latest model will always be deployed. This is due to how OVMS and KServe storage-initializer works. 
+
+OVMS requires a specific model repository [structure](https://docs.openvino.ai/2024/openvino-workflow/model-server/ovms_docs_models_repository.html). KServe uses the model path as the S3 path prefix to download all the files into the container. 
+
+`model_config.json` was an attempt to solve this using a custom `ServingRuntime` as part of the data science pipeline. However, when you deploy using the model registry, the `ServingRuntime` is the default template version.
 
 # Credits
 
