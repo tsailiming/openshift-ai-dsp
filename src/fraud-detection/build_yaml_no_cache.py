@@ -1,4 +1,4 @@
-# NOT USED ANYMORE
+#!/usr/bin/env python
 
 import argparse
 import kfp

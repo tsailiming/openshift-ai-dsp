@@ -1,3 +1,6 @@
+#!/usr/bin/env python
+
+# NOT USED ANYMORE
 import kfp
 from pipeline import fraud_training_pipeline
 
