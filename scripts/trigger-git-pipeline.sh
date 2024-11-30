@@ -4,7 +4,7 @@ set -e
 
 oc project dsp-demo-creditcard-fraud
 
-tkn pr delete --all -f
+oc delete pipelinerun --all
 
 echo 1 >> README.md; git add .; git commit -a -m 'add'; git push -v
 sleep 10
