@@ -2,6 +2,13 @@
 
 This demo shows how KFP SDK can be used to create the Data Science Pipeline in OpenShift AI. 
 
+# Important Disclaimer
+
+> IMPORTANT DISCLAIMER: Read before proceed!
+> 1. These examples are to showcase the capabilities of OpenShift AI.
+> 1. Certain components may not be supported if they are using upstream projects.
+> 1. Always check with Red Hat or your account team for supportability. 
+
 # Requirements
 
 * Tested on OpenShift 4.16 with cluster-admin
