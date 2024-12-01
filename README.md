@@ -15,10 +15,10 @@ This demo shows how KFP SDK can be used to create the Data Science Pipeline in O
 * Requires OpenShift AI 2.15 with Model Registry set to `Managed` inn DataScienceCluster `default-dsc`:
     ``` yaml
     spec:
-    components:    
-      modelregistry:
-        managementState: Managed
-        registriesNamespace: rhoai-model-registries
+      components:
+        modelregistry:
+          managementState: Managed
+          registriesNamespace: rhoai-model-registries
     ```
 
 * OpenShift Service Mesh is installed
