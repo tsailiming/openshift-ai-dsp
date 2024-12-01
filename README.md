@@ -16,7 +16,7 @@ This demo shows how KFP SDK can be used to create the Data Science Pipeline in O
     ``` yaml
     spec:
     components:    
-        modelregistry:
+      modelregistry:
         managementState: Managed
         registriesNamespace: rhoai-model-registries
     ```
