@@ -27,7 +27,7 @@ This demo shows how KFP SDK can be used to create the Data Science Pipeline in O
 
 # Setup
 
-This demo will run in the `dsp-demo-creditcard-fraud` namespace.
+This demo will be installed in the `dsp-demo-creditcard-fraud` namespace.
 
 ``` bash
 make setup-dsp-demo
@@ -124,3 +124,7 @@ Folks who helped me start this repo and provided guidance:
 * Humair Khan @HumairAK
 * Matteo Mortari @tarilabs
 * Yuan Tang @terrytangyuan
+
+# To Do
+
+* To validate and use the same annotations used during deployments from model registry dashboard to model serving.
