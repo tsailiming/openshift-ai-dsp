@@ -38,6 +38,9 @@ with open('src/fraud-detection/isvc.yaml.j2', 'r') as isvc_file:
 with open('src/fraud-detection/sr.yaml.j2', 'r') as sr_file:
     sr_file_content = sr_file.read().strip()
 
+dt = datetime.now().strftime("%Y-%m-%d %H-%M-%S")
+run_name = f"{experiment_name} {dt}"
+
 metadata = {
     "datastore": {"url": DATASTORE_URL},
     "hyperparameters": {"epochs": 2},
@@ -50,6 +53,8 @@ metadata = {
     "data_connection": data_connection,
     "isvc_file_content": isvc_file_content,
     "sr_file_content": sr_file_content,
+    "experiment_name": experiment_name,
+    "run_name": run_name
 }
 
 def create_run_from_pipeline_file(pipeline_file, client, metadata):
@@ -57,9 +62,7 @@ def create_run_from_pipeline_file(pipeline_file, client, metadata):
     with open(pipeline_file, 'r') as file:
         pipeline_content = file.read()
 
-    print(f"PIPELINE ARGUMENT: {metadata}")
-
-    dt = datetime.now().strftime("%Y-%m-%d %H-%M-%S")
+    print(f"PIPELINE ARGUMENT: {metadata}")    
     
     # Trigger the run from the compiled pipeline file
     client.create_run_from_pipeline_package(
@@ -67,7 +70,7 @@ def create_run_from_pipeline_file(pipeline_file, client, metadata):
         arguments=metadata,
         experiment_name=experiment_name,
         namespace=namespace,
-        run_name = f"{experiment_name} {dt}",
+        run_name = run_name,
         enable_caching=enable_caching
     )
     print(f"Run created using pipeline file: {pipeline_file}")

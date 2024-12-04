@@ -15,11 +15,12 @@ from kfp.dsl import (
 )
 def deploy_model(
     model_name: str,
-    model_path: str,
-    model_version: str,
+    model_path: str,    
+    model_id: str,
+    model_version_id: str,
     data_connection: str,
     isvc_file_content: str,
-    sr_file_content: str
+    sr_file_content: str    
 ):
     from jinja2 import Template
     from kubernetes import client, config
@@ -79,10 +80,11 @@ def deploy_model(
             )
     
     context = {
-        "model_name": model_name,
-        "model_version": model_version,
+        "model_name": model_name,        
         "model_path": model_path,
-        "storage_key": data_connection
+        "storage_key": data_connection,
+        "model_id":  model_id,
+        "model_version_id": model_version_id
     }
         
     # print(f"ISVC_FILE:\n{Template(isvc_file_content).render(context)}")

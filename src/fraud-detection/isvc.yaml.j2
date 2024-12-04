@@ -2,14 +2,15 @@ apiVersion: serving.kserve.io/v1beta1
 kind: InferenceService
 metadata:
   annotations:
-    model-registry/model-name: {{model_name}}
-    model-registry/version: "{{model_version}}"
     openshift.io/display-name: {{model_name}}
     serving.knative.openshift.io/enablePassthrough: "true"
     sidecar.istio.io/inject: "true"
     sidecar.istio.io/rewriteAppHTTPProbers: "true"
   labels:
     opendatahub.io/dashboard: "true"
+    modelregistry.opendatahub.io/model-name: {{model_name}} # Not in used by model registry deployment page
+    modelregistry.opendatahub.io/model-version-id: "{{model_version_id}}"
+    modelregistry.opendatahub.io/registered-model-id: "{{model_id}}"
   name: {{model_name}}
 spec:
   predictor:

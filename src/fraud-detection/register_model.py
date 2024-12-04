@@ -6,6 +6,8 @@ from kfp.dsl import (
     Markdown
 )
 
+from typing import NamedTuple
+
 @component(
     base_image="registry.access.redhat.com/ubi8/python-39",
     packages_to_install=["boto3", "model-registry==0.2.7a1"]
@@ -19,7 +21,10 @@ def register_model(
     model_registry_port: str,
     model_registry_is_secure: bool,
     data_connection: str,
-):  
+    experiment_name: str,
+    run_name: str,    
+)-> NamedTuple('outputs', [('model_id', str), ('model_version_id', str)]):
+    
     from model_registry import ModelRegistry, utils
     import os
 
@@ -63,6 +68,14 @@ def register_model(
                 model_format_version="1",              # model format version
                 storage_key=data_connection,
                 metadata = {'git_revsion': git_revision,
-                            'model_revision': model_version})
+                            'model_revision': model_version,
+                            'experiment_name': experiment_name,
+                            'run_name': run_name})
 
-    print("Registered Model:", model, "with ID", model.id)
+    version = registry.get_model_version(model_name, model_version)
+
+    print(f"Registered Model: {model} with ID: {model.id}")
+    print(f"Registered Model Version: {version} with ID: {version.id}")
+
+    outputs = NamedTuple('outputs', [('model_id', str), ('model_version_id', str)])
+    return outputs(model.id, version.id)

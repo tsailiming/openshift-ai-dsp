@@ -29,6 +29,8 @@ def fraud_training_pipeline(
     data_connection: str,
     isvc_file_content: str,
     sr_file_content: str,
+    experiment_name: str,
+    run_name: str
 
 ):
     fetch_task = fetch_transactionsdb_data(datastore = datastore)
@@ -81,16 +83,19 @@ def fraud_training_pipeline(
         model_registry_endpoint = model_registry_endpoint,
         model_registry_port = model_registry_port,
         model_registry_is_secure = model_registry_is_secure,
-        data_connection=data_connection        
+        data_connection=data_connection,
+        experiment_name=experiment_name,
+        run_name=run_name
     ).set_caching_options(enable_caching=False).after(upload_model_task)
     
     deploy_model_task = deploy_model(
         model_name=model_name, 
-        model_version=upload_model_task.outputs["model_version"],
         model_path=model_prefix,
         data_connection=data_connection,
         isvc_file_content = isvc_file_content,
         sr_file_content = sr_file_content,
+        model_id = register_model_task.outputs['model_id'],
+        model_version_id = register_model_task.outputs['model_version_id']
     ).set_caching_options(enable_caching=False).after(register_model_task)
 
     for key in [
