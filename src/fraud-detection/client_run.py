@@ -86,7 +86,7 @@ def create_run_from_pipeline_file(pipeline_file, client, metadata):
 
     # Create a run
     run = client.run_pipeline(
-        experiment_id=experiment.id,
+        experiment_id=experiment.experiment_id,
         params=metadata,
         job_name=run_name,
         pipeline_id=pipeline.id,        
