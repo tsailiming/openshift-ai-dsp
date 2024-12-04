@@ -98,11 +98,33 @@ make run-pipeline
 
 1. Model will be registered with the model registry
 
+    The model details:
+    ![model registry](images/model-id.png)
+
+    The various versions:
     ![model registry](images/model-registry.png)
+
+    The details of a model version. E.g. version 4:
+    ![model registry](images/model-version-id.png)
+
 
 1. Model will be deployed to KServe
 
     ![kserve](images/kserve.png)
+
+# Deploying the model using model registry
+
+After the model is registered, you can manually deploy it.
+
+1. Manual deployment
+    ![model-deployment](images/model-registry-to-deploy.png)
+
+1. Model registry deployment view
+    ![model-deployment](images/model-registry-deploy.png)
+
+1. The `InferenceService` annotations
+    ![model-deployment](images/model-isvc.png)
+
 
 # Known Issues
 
@@ -125,6 +147,6 @@ Folks who helped me start this repo and provided guidance:
 * Matteo Mortari @tarilabs
 * Yuan Tang @terrytangyuan
 
-# To Do
+# To-Do
 
 * To validate and use the same annotations used during deployments from model registry dashboard to model serving.
