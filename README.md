@@ -139,6 +139,10 @@ OVMS requires a specific model repository [structure](https://docs.openvino.ai/2
 
 `model_config.json` was an attempt to solve this using a custom `ServingRuntime` as part of the data science pipeline. However, when you deploy using the model registry, the `ServingRuntime` is the default template version.
 
+## Previous Model Accuracy Metric
+
+Is currently hardcoded for now.
+
 # Credits
 
 Folks who helped me start this repo and provided guidance:
@@ -148,5 +152,3 @@ Folks who helped me start this repo and provided guidance:
 * Yuan Tang @terrytangyuan
 
 # To-Do
-
-* To validate and use the same annotations used during deployments from model registry dashboard to model serving.
