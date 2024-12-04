@@ -64,16 +64,36 @@ def create_run_from_pipeline_file(pipeline_file, client, metadata):
 
     print(f"PIPELINE ARGUMENT: {metadata}")    
     
-    # Trigger the run from the compiled pipeline file
-    client.create_run_from_pipeline_package(
-        pipeline_file, 
-        arguments=metadata,
-        experiment_name=experiment_name,
-        namespace=namespace,
-        run_name = run_name,
-        enable_caching=enable_caching
+    # # Trigger the run from the compiled pipeline file
+    # client.create_run_from_pipeline_package(
+    #     pipeline_file, 
+    #     arguments=metadata,
+    #     experiment_name=experiment_name,
+    #     namespace=namespace,
+    #     run_name = run_name,
+    #     enable_caching=enable_caching
+    # )
+
+    # Upload the pipeline
+    pipeline_name = "fraud-detection-training"
+    pipeline = client.upload_pipeline(
+        pipeline_package_path=pipeline_file,
+        pipeline_name=pipeline_name,
     )
+
+    # Create an experiment    
+    experiment = client.create_experiment(name=experiment_name)
+
+    # Create a run
+    run = client.run_pipeline(
+        experiment_id=experiment.id,
+        params=metadata,
+        job_name=run_name,
+        pipeline_id=pipeline.id,        
+    )
+
     print(f"Run created using pipeline file: {pipeline_file}")
+    print(f"Pipeline submitted: {run.run_id}")
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Run Kubeflow pipeline from an existing YAML file')
