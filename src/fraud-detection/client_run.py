@@ -86,8 +86,6 @@ def create_run_from_pipeline_file(pipeline_file, client, metadata):
     
     pipeline = get_pipeline_id_by_name(client, pipeline_name)
 
-    import pprint
-    
     if pipeline:
         
         pipeline_version_name = f"{pipeline_name} version {dt}"
@@ -108,6 +106,7 @@ def create_run_from_pipeline_file(pipeline_file, client, metadata):
             pipeline_name=pipeline_name
         )
 
+        # When the first pipeline gets created, a pipeline version gets created too
         pipeline_version_id = get_first_pipeline_version(client, pipeline.pipeline_id, pipeline_version_name)
         
     experiment = client.create_experiment(name=experiment_name)
