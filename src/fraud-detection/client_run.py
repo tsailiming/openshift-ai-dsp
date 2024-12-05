@@ -38,6 +38,8 @@ with open('src/fraud-detection/isvc.yaml.j2', 'r') as isvc_file:
 with open('src/fraud-detection/sr.yaml.j2', 'r') as sr_file:
     sr_file_content = sr_file.read().strip()
 
+pipeline_name = "fraud-detection-training"
+
 dt = datetime.now().strftime("%Y-%m-%d %H-%M-%S")
 run_name = f"{experiment_name} {dt}"
 
@@ -57,42 +59,70 @@ metadata = {
     "run_name": run_name
 }
 
+def get_pipeline_id_by_name(client, pipeline_name):
+    pipelines = client.list_pipelines()
+
+    if pipelines and pipelines.pipelines:
+        for pipeline in pipelines.pipelines:
+            if pipeline.display_name == pipeline_name:
+                return pipeline
+    return None
+
+def get_first_pipeline_version(client, pipeline_id, version_name):
+    response = client.list_pipeline_versions(pipeline_id=pipeline_id)
+    
+    if response and response.pipeline_versions:
+        for version in response.pipeline_versions:
+            if version.display_name == version_name:
+                return version.pipeline_version_id
+    return None
+
 def create_run_from_pipeline_file(pipeline_file, client, metadata):
     # Assuming pipeline file is already compiled (YAML)
     with open(pipeline_file, 'r') as file:
         pipeline_content = file.read()
 
-    print(f"PIPELINE ARGUMENT: {metadata}")    
+    #print(f"PIPELINE ARGUMENT: {metadata}")    
     
-    # # Trigger the run from the compiled pipeline file
-    # client.create_run_from_pipeline_package(
-    #     pipeline_file, 
-    #     arguments=metadata,
-    #     experiment_name=experiment_name,
-    #     namespace=namespace,
-    #     run_name = run_name,
-    #     enable_caching=enable_caching
-    # )
+    pipeline = get_pipeline_id_by_name(client, pipeline_name)
 
-    # Upload the pipeline
-    pipeline_name = "fraud-detection-training"
-    pipeline = client.upload_pipeline(
-        pipeline_package_path=pipeline_file,
-        pipeline_name=pipeline_name,
-    )
+    import pprint
+    
+    if pipeline:
+        
+        pipeline_version_name = f"{pipeline_name} version {dt}"
 
-    # Create an experiment    
+        pipeline = client.upload_pipeline_version(
+            pipeline_package_path=pipeline_file,
+            pipeline_version_name=pipeline_version_name,
+            pipeline_id=pipeline.pipeline_id
+        )
+
+        pipeline_version_id = pipeline.pipeline_version_id
+    else:      
+
+        pipeline_version_name = pipeline_name
+
+        pipeline = client.upload_pipeline(
+            pipeline_package_path=pipeline_file,
+            pipeline_name=pipeline_name
+        )
+
+        pipeline_version_id = get_first_pipeline_version(client, pipeline.pipeline_id, pipeline_version_name)
+        
     experiment = client.create_experiment(name=experiment_name)
 
-    # Create a run
     run = client.run_pipeline(
         experiment_id=experiment.experiment_id,
         params=metadata,
         job_name=run_name,
-        pipeline_id=pipeline.id,        
+        pipeline_id=pipeline.pipeline_id,
+        version_id=pipeline_version_id
     )
 
     print(f"Run created using pipeline file: {pipeline_file}")
+    print(f"Run created using pipeline id: {pipeline.pipeline_id}")
+    print(f"Run using pipeline version name: {pipeline_version_name} id: {pipeline_version_id}")
     print(f"Pipeline submitted: {run.run_id}")
 
 if __name__ == '__main__':
@@ -102,6 +132,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     dspa_host = f"ds-pipeline-{dspa}.{namespace}.svc.cluster.local"
+    #dspa_host ='localhost'
     route = f"https://{dspa_host}:8443"
 
     client = kfp.Client(host=route, verify_ssl=False, existing_token=token)
