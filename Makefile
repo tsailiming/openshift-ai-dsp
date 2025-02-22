@@ -7,7 +7,7 @@ MARIADB_NAME=mariadb-creditfraud-pipeline
 UPSTREAM_REPO=https://github.com/tsailiming/openshift-ai-dsp.git
 
 .PHONY: setup-dsp-demo
-setup-dsp-demo: preflight-check setup-namespace deploy-minio deploy-dspa deploy-model-registry deploy-tekton deploy-gitea
+setup-dsp-demo: preflight-check setup-namespace deploy-minio deploy-gitea deploy-dspa deploy-model-registry deploy-tekton 
 
 .PHONY: preflight-check
 preflight-check:
@@ -62,7 +62,7 @@ deploy-tekton: deploy-model-registry
 	@$(BASE)/scripts/patch-pipeline.sh $(NAMESPACE) $(GIT_REPO_NAME) $(MODEL_REGISTRY_NAME)
 
 .PHONY: deploy-gitea
-deploy-gitea: deploy-tekton
+deploy-gitea:
 	@oc apply -k https://github.com/rhpds/gitea-operator/OLMDeploy
 	-oc new-project gitea
 	@oc apply -f yaml/gitea/gitea-sever.yaml
