@@ -56,6 +56,12 @@ teardown-tekton:
 .PHONY: deploy-tekton
 deploy-tekton: deploy-model-registry
 	@oc apply -f $(BASE)/yaml/tekton/tekton-sub.yaml
+
+	@until oc get crd pipelines.tekton.dev>/dev/null 2>&1; do \
+    	echo "Wait until CRD pipelines.tekton.dev is ready..."; \
+		sleep 10; \
+	done
+	
 	@oc apply -f ${BASE}/yaml/tekton/netpol.yaml -n $(NAMESPACE)
 	@oc apply -f ${BASE}/yaml/tekton/pipeline.yaml -n $(NAMESPACE)
 	
@@ -64,6 +70,12 @@ deploy-tekton: deploy-model-registry
 .PHONY: deploy-gitea
 deploy-gitea:
 	@oc apply -k https://github.com/rhpds/gitea-operator/OLMDeploy
+
+	@until oc get crd gitea.pfe.rhpds.com>/dev/null 2>&1; do \
+    	echo "Wait until CRD gitea.pfe.rhpds.com is ready..."; \
+		sleep 10; \
+	done
+
 	-oc new-project gitea
 	@oc apply -f yaml/gitea/gitea-sever.yaml
 
