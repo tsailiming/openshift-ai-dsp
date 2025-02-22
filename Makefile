@@ -81,7 +81,7 @@ teardown-all: teardown-kserve teardown-model-registry teardown-tekton teardown-m
 	
 .PHONY: teardown-model-registry
 teardown-model-registry:
-	-@oc delete modelregistry $(MODEL_REGISTRY_NAME) -n rhoai-model-registries
+	-@oc delete modelregistry.modelregistry.opendatahub.io/$(MODEL_REGISTRY_NAME) -n rhoai-model-registries
 	-@oc delete deploy $(MARIADB_NAME) -n rhoai-model-registries
 	-@oc delete svc $(MARIADB_NAME) -n rhoai-model-registries
 	-@oc delete secret my-registry-password -n rhoai-model-registries
@@ -126,7 +126,7 @@ deploy-model-registry: teardown-model-registry
 	APPS_DOMAIN=$$(oc get ingresses.config.openshift.io cluster -o jsonpath='{.spec.domain}')  \
 		envsubst < $(BASE)/yaml/model-registry/model-registry.yaml.tmpl | oc create -n rhoai-model-registries  -f -
 	
-	@until oc get modelregistry $(MODEL_REGISTRY_NAME) -n rhoai-model-registries -o jsonpath='{.status.conditions[?(@.type=="Available")].status}' | grep -q "True"; do \
+	@until oc get modelregistry.modelregistry.opendatahub.io/$(MODEL_REGISTRY_NAME) -n rhoai-model-registries -o jsonpath='{.status.conditions[?(@.type=="Available")].status}' | grep -q "True"; do \
 		echo "Waiting for model registry to be ready..."; \
 		sleep 10; \
 	done
