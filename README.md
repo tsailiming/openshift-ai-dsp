@@ -11,8 +11,8 @@ This demo shows how KFP SDK can be used to create the Data Science Pipeline in O
 
 # Requirements
 
-* Tested on OpenShift 4.16 with cluster-admin
-* Requires OpenShift AI 2.15 with Model Registry set to `Managed` inn DataScienceCluster `default-dsc`:
+* Tested on OpenShift 4.16/4.17 with cluster-admin
+* Tested on OpenShift AI 2.17 with Model Registry set to `Managed` inn DataScienceCluster `default-dsc`:
     ``` yaml
     spec:
       components:
