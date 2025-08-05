@@ -33,7 +33,7 @@ def fraud_training_pipeline(
     run_name: str
 
 ):
-    fetch_task = fetch_transactionsdb_data(datastore = datastore)
+    fetch_task = fetch_transactionsdb_data(datastore = datastore).set_caching_options(enable_caching=False)
 
     # Validate Data
     data_validation_task = validate_transactiondb_data(dataset = fetch_task.outputs["dataset"]).set_caching_options(enable_caching=False)
