@@ -1,0 +1,21 @@
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: dashboard-permissions
+  namespace: rhoai-model-registries  
+  labels:
+    app: creditfraud-pipeline-model-registry
+    app.kubernetes.io/component: model-registry
+    app.kubernetes.io/name: creditfraud-pipeline-model-registry
+    app.kubernetes.io/part-of: model-registry
+    component: model-registry
+    opendatahub.io/dashboard: 'true'
+    opendatahub.io/rb-project-subject: 'true'
+subjects:
+  - kind: Group
+    apiGroup: rbac.authorization.k8s.io
+    name: 'system:serviceaccounts:dsp-demo-creditcard-fraud'
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: registry-user-creditfraud-pipeline-model-registry

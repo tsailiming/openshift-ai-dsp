@@ -7,9 +7,12 @@ metadata:
   name: ${MODEL_REGISTRY_NAME}
   namespace: rhoai-model-registries  
 spec:
-  oauthProxy: {}
   grpc:
     port: 9090
+  oauthProxy:
+    port: 8443
+    routePort: 443
+    serviceRoute: enabled
   mysql:
     database: ${MYSQL_DATABASE}
     host: ${MYSQL_NAME}.rhoai-model-registries.svc.cluster.local

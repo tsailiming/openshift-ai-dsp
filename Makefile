@@ -143,6 +143,8 @@ deploy-model-registry: teardown-model-registry
 		sleep 10; \
 	done
 
+	oc apply -f $(BASE)/yaml/model-registry/rb.yaml
+	
 	@echo "Model registry is ready"
 
 .PHONY: teardown-dspa
