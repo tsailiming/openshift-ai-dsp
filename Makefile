@@ -55,7 +55,12 @@ teardown-tekton:
 
 .PHONY: deploy-tekton
 deploy-tekton: deploy-model-registry
-	@oc apply -f $(BASE)/yaml/tekton/tekton-sub.yaml
+	@if oc get crd pipelines.tekton.dev >/dev/null 2>&1; then \
+		echo "Tekton is already installed. Skipping Tekton installation."; \
+	else \
+		echo "Tekton is not installed. Installing..."; \
+		oc apply -f $(BASE)/yaml/tekton/tekton-sub.yaml; \
+	fi
 
 	@until oc get crd pipelines.tekton.dev>/dev/null 2>&1; do \
     	echo "Wait until CRD pipelines.tekton.dev is ready..."; \
