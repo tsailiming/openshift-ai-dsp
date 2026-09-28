@@ -11,7 +11,7 @@ from kfp.dsl import (
 
 @component(
     base_image="quay.io/hukhan/tensorflow:2.17.0",
-    packages_to_install=[ "pandas", "scikit-learn"]
+    packages_to_install=["pandas", "scikit-learn", "numpy<2.0.0", "protobuf<5.0.0"]
 )
 def train_fraud_model(
     train_data: Input[Dataset],
@@ -68,7 +68,7 @@ def train_fraud_model(
     
 @component(
     base_image="quay.io/hukhan/tensorflow:2.17.0",
-    packages_to_install=["tf2onnx", "onnx", "pandas", "scikit-learn"]
+    packages_to_install=["tf2onnx", "onnx", "pandas", "scikit-learn", "numpy<2.0.0", "protobuf<5.0.0"]
 )
 def convert_keras_to_onnx(
     keras_model: Input[Model],

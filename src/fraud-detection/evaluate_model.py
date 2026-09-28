@@ -11,7 +11,7 @@ from kfp.dsl import (
 
 @component(
     base_image="quay.io/hukhan/tensorflow:2.17.0",
-    packages_to_install=["tf2onnx", "onnx", "pandas", "scikit-learn"]
+    packages_to_install=["tf2onnx", "onnx", "pandas", "scikit-learn", "numpy<2.0.0", "protobuf<5.0.0"]
 )
 def evaluate_keras_model_performance(
     model: Input[Model],
@@ -58,7 +58,7 @@ def evaluate_keras_model_performance(
         
 @component(
     base_image="quay.io/hukhan/tensorflow:2.17.0",
-    packages_to_install=["onnxruntime", "pandas"]
+    packages_to_install=["onnxruntime", "pandas", "numpy<2.0.0", "protobuf<5.0.0"]
 )
 def validate_onnx_model(
     onnx_model: Input[Model],
