@@ -42,7 +42,7 @@ Additionally, it will install the following components:
 | Model Registry | rhoai-model-registries | To store the model meta information     |
 | MariaDB | rhoai-model-registries | MySQL backend for model registry
 | Data Science Pipeline | dsp-demo-creditcard-fraud | To run the pipeline     |
-| Minio    | dsp-demo-creditcard-fraud | To store the model and pipeline artifacts    |
+| SeaweedFS | dsp-demo-creditcard-fraud | S3-compatible storage for model and pipeline artifacts |
 
 To teardown the entire setup. This will delete the namespace and the model registry.
 
@@ -50,13 +50,11 @@ To teardown the entire setup. This will delete the namespace and the model regis
 make teardown-all
 ```
 
-## Minio
+## SeaweedFS
 
-The credential for minio is `minio/minio123`. Route for minio is:
+SeaweedFS provides S3-compatible object storage. The default credentials are `admin/admin`.
 
-``` bash
-echo "https://$(oc get routes minio-console -n dsp-demo-creditcard-fraud -o jsonpath='{.spec.host}')"
-```
+S3 endpoint (internal): `http://seaweedfs-dsp-s3.dsp-demo-creditcard-fraud.svc.cluster.local:8333`
 ## Gitea 
 
 The credential for `opentlc-mgr` admin user in gitea can be found in 

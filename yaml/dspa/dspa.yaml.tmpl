@@ -33,14 +33,14 @@ spec:
     externalStorage:
       basePath: ''
       bucket: pipeline-artifacts
-      host: ${AWS_S3_ENDPOINT}
-      port: ''
+      host: seaweedfs-dsp-s3.${NAMESPACE}.svc.cluster.local
+      port: '8333'
       region: us-east-1
       s3CredentialsSecret:
         accessKey: AWS_ACCESS_KEY_ID
         secretKey: AWS_SECRET_ACCESS_KEY
         secretName: aws-connection-pipeline-artifacts
-      scheme: https
+      scheme: http
   persistenceAgent:
     deploy: true
     numWorkers: 2

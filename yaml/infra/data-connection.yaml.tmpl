@@ -7,17 +7,15 @@ metadata:
     opendatahub.io/managed: 'true'
   annotations:
     opendatahub.io/connection-type: s3
+    opendatahub.io/connection-type-ref: s3
     openshift.io/display-name: My Storage
-data:
+stringData:
   AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
   AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
-stringData:
   AWS_DEFAULT_REGION: us-east-1
   AWS_S3_BUCKET: my-storage
-  # Needed for AWS CLI https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html
-  AWS_ENDPOINT_URL_S3: https://${AWS_S3_ENDPOINT}
-  # Need for KServe/OpenShift AI
-  AWS_S3_ENDPOINT: https://${AWS_S3_ENDPOINT}
+  AWS_ENDPOINT_URL: http://${AWS_S3_ENDPOINT}:${AWS_S3_PORT}
+  AWS_S3_ENDPOINT: http://${AWS_S3_ENDPOINT}:${AWS_S3_PORT}
 type: Opaque
 ---
 kind: Secret
@@ -29,15 +27,13 @@ metadata:
     opendatahub.io/managed: 'true'
   annotations:
     opendatahub.io/connection-type: s3
+    opendatahub.io/connection-type-ref: s3
     openshift.io/display-name: Pipeline Artifacts
-data:
+stringData:
   AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
   AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
-stringData:
   AWS_DEFAULT_REGION: us-east-1
   AWS_S3_BUCKET: pipeline-artifacts
-  # Needed for AWS CLI https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html
-  AWS_ENDPOINT_URL_S3: https://${AWS_S3_ENDPOINT}
-  # Need for KServe/OpenShift AI
-  AWS_S3_ENDPOINT: https://${AWS_S3_ENDPOINT}  
+  AWS_ENDPOINT_URL: http://${AWS_S3_ENDPOINT}:${AWS_S3_PORT}
+  AWS_S3_ENDPOINT: http://${AWS_S3_ENDPOINT}:${AWS_S3_PORT}
 type: Opaque

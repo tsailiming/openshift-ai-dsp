@@ -7,7 +7,7 @@ MARIADB_NAME=mariadb-creditfraud-pipeline
 UPSTREAM_REPO=https://github.com/tsailiming/openshift-ai-dsp.git
 
 .PHONY: setup-dsp-demo
-setup-dsp-demo: preflight-check setup-namespace deploy-minio deploy-gitea deploy-dspa deploy-model-registry deploy-tekton 
+setup-dsp-demo: preflight-check setup-namespace deploy-seaweedfs deploy-gitea deploy-dspa deploy-model-registry deploy-tekton 
 
 .PHONY: preflight-check
 preflight-check:
@@ -29,7 +29,6 @@ teardown-kserve:
 
 .PHONY: teardown-namespace
 teardown-namespace:
-	-oc delete -f $(BASE)/yaml/netpol-ingress.yaml -n $(NAMESPACE)
 	-oc delete project $(NAMESPACE)
 
 .PHONY: setup-namespace
@@ -39,7 +38,6 @@ setup-namespace:
 		maistra.io/member-of=istio-system \
 		modelmesh-enabled=false \
 		opendatahub.io/dashboard=true
-	@oc apply -f $(BASE)/yaml/netpol-ingress.yaml -n $(NAMESPACE)
 
 .PHONY: setup-odh-tec
 setup-odh-tec:
@@ -50,7 +48,6 @@ setup-odh-tec:
 
 .PHONY: teardown-tekton
 teardown-tekton:
-	-@oc delete -f ${BASE}/yaml/tekton/netpol.yaml -n $(NAMESPACE)
 	-@oc delete -f ${BASE}/yaml/tekton/pipeline.yaml -n $(NAMESPACE)
 
 .PHONY: deploy-tekton
@@ -67,7 +64,6 @@ deploy-tekton: deploy-model-registry
 		sleep 10; \
 	done
 	
-	@oc apply -f ${BASE}/yaml/tekton/netpol.yaml -n $(NAMESPACE)
 	@oc apply -f ${BASE}/yaml/tekton/pipeline.yaml -n $(NAMESPACE)
 	
 	@$(BASE)/scripts/patch-pipeline.sh $(NAMESPACE) $(GIT_REPO_NAME) $(MODEL_REGISTRY_NAME)
@@ -94,7 +90,7 @@ deploy-gitea:
 	@$(BASE)/scripts/add-gitea-webhook.sh $(NAMESPACE) $(GIT_REPO_NAME) $(UPSTREAM_REPO)
 
 .PHONY: teardown-all
-teardown-all: teardown-kserve teardown-model-registry teardown-tekton teardown-minio teardown-dspa teardown-namespace
+teardown-all: teardown-kserve teardown-model-registry teardown-tekton teardown-seaweedfs teardown-dspa teardown-namespace
 	
 .PHONY: teardown-model-registry
 teardown-model-registry:
@@ -161,34 +157,39 @@ teardown-dspa:
 deploy-dspa:
 	@oc apply -f $(BASE)/yaml/dspa/dspa-edit-rb.yaml -n $(NAMESPACE)
 
-	@AWS_S3_ENDPOINT=$$(oc get route minio -n ${NAMESPACE} -o jsonpath='{.spec.host}') \
-         envsubst < $(BASE)/yaml/dspa/dspa.yaml.tmpl | oc apply -n $(NAMESPACE) -f -
+	@NAMESPACE=$(NAMESPACE) \
+		envsubst < $(BASE)/yaml/dspa/dspa.yaml.tmpl | oc apply -n $(NAMESPACE) -f -
 	
-.PHONY: teardown-minio
-teardown-minio:
-	-oc delete -f $(BASE)/yaml/minio/minio.yaml -n $(NAMESPACE)
-	-oc delete pvc data-minio-0 -n $(NAMESPACE)
+.PHONY: teardown-seaweedfs
+teardown-seaweedfs:
+	-helm uninstall seaweedfs-dsp -n $(NAMESPACE)
+	-oc delete pvc -l app.kubernetes.io/name=seaweedfs-dsp -n $(NAMESPACE) 2>/dev/null || true
+	-oc delete secret aws-connection-my-storage -n $(NAMESPACE) 2>/dev/null || true
+	-oc delete secret aws-connection-pipeline-artifacts -n $(NAMESPACE) 2>/dev/null || true
 
-.PHONY: deploy-minio
-deploy-minio: teardown-minio
-	@oc apply -f $(BASE)/yaml/minio/minio.yaml -n $(NAMESPACE)
+.PHONY: deploy-seaweedfs
+deploy-seaweedfs: teardown-seaweedfs
+	@helm repo add seaweedfs https://seaweedfs.github.io/seaweedfs/helm || true
+	@helm repo update seaweedfs
 
-	@until oc get statefulset minio -n $(NAMESPACE) -o jsonpath='{.status.readyReplicas}' | grep -q '1'; do \
-		echo "Waiting for StatefulSet minio to have 1 ready replica..."; \
+	@helm install seaweedfs-dsp seaweedfs/seaweedfs \
+		-n $(NAMESPACE) \
+		-f $(BASE)/yaml/infra/seaweedfs-values.yaml
+
+	@echo "Waiting for SeaweedFS S3 gateway to be ready..."
+	@until oc get deployment seaweedfs-dsp-s3 -n $(NAMESPACE) -o jsonpath='{.status.readyReplicas}' 2>/dev/null | grep -q '1'; do \
+		echo "Waiting for SeaweedFS S3 deployment..."; \
 		sleep 10; \
 	done
-	@echo "StatefulSet minio has 1 ready replica."
+	@echo "SeaweedFS S3 gateway is ready."
 
-	-oc delete secret aws-connection-my-storage -n $(NAMESPACE)
-	-oc delete secret aws-connection-pipeline-artifacts -n $(NAMESPACE)
+	@AWS_ACCESS_KEY_ID=$$(oc get secret seaweedfs-dsp-s3-secret -n $(NAMESPACE) -o jsonpath='{.data.admin_access_key_id}' | base64 -d) \
+	AWS_SECRET_ACCESS_KEY=$$(oc get secret seaweedfs-dsp-s3-secret -n $(NAMESPACE) -o jsonpath='{.data.admin_secret_access_key}' | base64 -d) \
+	AWS_S3_ENDPOINT=seaweedfs-dsp-s3.$(NAMESPACE).svc.cluster.local \
+	AWS_S3_PORT=8333 \
+		envsubst < $(BASE)/yaml/infra/data-connection.yaml.tmpl | oc apply -n $(NAMESPACE) -f -
 
-	@AWS_ACCESS_KEY_ID=$$(oc extract secret/minio  --to=- --keys=MINIO_ROOT_USER -n $(NAMESPACE) 2>/dev/null | tr -d '\n' | base64 ) \
-	AWS_SECRET_ACCESS_KEY=$$(oc extract secret/minio  --to=- --keys=MINIO_ROOT_PASSWORD -n $(NAMESPACE) 2>/dev/null | tr -d '\n' | base64) \
-	AWS_S3_ENDPOINT=$$(oc get route minio -n $(NAMESPACE) -o jsonpath='{.spec.host}') \
-		envsubst < $(BASE)/yaml/minio/data-connection.yaml.tmpl | oc create -n $(NAMESPACE) -f -	
-
-	@$(BASE)/scripts/run-job.sh $(BASE)/yaml/minio/setup-s3.yaml.tmpl $(NAMESPACE) setup-s3-job aws-connection-pipeline-artifacts
-	@$(BASE)/scripts/run-job.sh $(BASE)/yaml/minio/setup-s3.yaml.tmpl $(NAMESPACE) setup-s3-job aws-connection-my-storage
+	@echo "SeaweedFS S3 endpoint: http://seaweedfs-dsp-s3.$(NAMESPACE).svc.cluster.local:8333"
 
 .PHONY: run-pipeline
 run-pipeline:
